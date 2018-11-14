@@ -13,4 +13,8 @@ public class Seller extends User {
     public String getSellerAddress() {
         return address;
     }
+    
+    public String getSellerAccount() {
+        return bankAccount;
+    }
 }

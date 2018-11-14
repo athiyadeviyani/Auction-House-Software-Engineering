@@ -16,5 +16,13 @@ public class Buyer extends User {
     public String getBuyerAddress() {
         return address;
     }
+    
+    public String getBuyerAuthCode() {
+        return bankAuthCode;
+    }
+    
+    public String getBuyerAccount() {
+        return bankAccount;
+    }
 
 }
