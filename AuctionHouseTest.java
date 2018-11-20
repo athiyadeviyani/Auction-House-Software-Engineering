@@ -44,6 +44,10 @@ public class AuctionHouseTest {
         assertEquals(Status.Kind.SALE, status.kind);
     }
     
+    private static void assertPendingPayment(Status status) { 
+        assertEquals(Status.Kind.SALE_PENDING_PAYMENT, status.kind);
+    }
+    
     /*
      * Logging functionality
      */
@@ -170,6 +174,7 @@ public class AuctionHouseTest {
     @Test
     public void testRegisterSeller() {
         logger.info(makeBanner("testRegisterSeller"));
+        logger.info(makeBanner("testRegisterSeller"));
         runStory(1);
     }
 
@@ -179,11 +184,27 @@ public class AuctionHouseTest {
         runStory(1);     
         assertError(house.registerSeller("SellerY", "@SellerZ", "SZ A/C"));       
     }
+    
+    @Test
+    //test the case where the an already registered buyer is registered again
+    public void testRegisterBuyerDuplicateNames() {
+        logger.info(makeBanner("testRegisterBuyerDuplicateNames"));
+        runStory(3);     
+        assertError(house.registerBuyer("BuyerA", "@BuyerA", "BA A/C", "BA-auth")); 
+    }
 
     @Test
     public void testAddLot() {
         logger.info(makeBanner("testAddLot"));
         runStory(2);
+    }
+    
+    @Test
+    //test the case where an unregistered seller tries to add a lot
+    public void testUnrigesteredSellerAddLot() {
+        logger.info(makeBanner("testUnrigesteredSellerAddLot"));
+        runStory(1);
+        assertError(house.addLot("SellerN", 2, "Painting", new Money("200.00")));
     }
     
     @Test
@@ -212,11 +233,27 @@ public class AuctionHouseTest {
         logger.info(makeBanner("testNoteInterest"));
         runStory(4);
     }
+    
+    @Test
+    //test the case where a buyer tries to note interest on an unregistered Lot
+    public void testNoteInterestUnregLot() {
+        logger.info(makeBanner("testNoteInterest"));
+        runStory(3);
+        assertError(house.noteInterest("BuyerA", 19));
+    }
       
     @Test
+    //test the case where an auction is opened on an unregistered Lot
     public void testOpenAuction() {
         logger.info(makeBanner("testOpenAuction"));
         runStory(5);       
+    }
+    
+    @Test
+    public void testOpenAuctionUnregLot() {
+        logger.info(makeBanner("testOpenAuction"));
+        runStory(4);
+        assertError(house.openAuction("Auctioneer1", "@Auctioneer1", 19));
     }
       
     @Test
@@ -229,6 +266,24 @@ public class AuctionHouseTest {
     public void testCloseAuctionWithSale() {
         logger.info(makeBanner("testCloseAuctionWithSale"));
         runStory(8);
+    }
+    
+    @Test
+    //test the case where an auction is closed on an unregistered lot
+    public void testCloseAuctionUnregLot() {
+        logger.info(makeBanner("testCloseAuctionUnregLot"));
+        runStory(7);
+        assertError(house.closeAuction("Auctioneer1",  19));
+    }
+    
+    @Test
+    //test a transaction will result in pending payment status of the transaction with a bad account
+    public void testBadAccount() {
+        logger.info(makeBanner("testBadAccount"));
+        runStory(7);
+        bankingService.setBadAccount("BB A/C");
+        
+        assertPendingPayment(house.closeAuction("Auctioneer1",  1));
     }
      
     

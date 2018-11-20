@@ -108,6 +108,7 @@ public class Money implements Comparable<Money> {
     /**
      * Compares this instance's value field with an input instance's value field 
      * 
+     * @param another instance of Money to be compared with this instance's value
      * @return greater than 0 if this instance's field is greater than the input instance's,
      *                 less if otherwise and 0 if equal
      */
@@ -115,11 +116,25 @@ public class Money implements Comparable<Money> {
         return Long.compare(getNearestPence(value),  getNearestPence(m.value)); 
     }
     
+    /**
+     * Compares this instance's value field with another instance's value field using the compareTo() method
+     * 
+     * @param another instance of Money
+     * @return True if this instance's value field is less than the the input instance's value field
+     */
     public Boolean lessEqual(Money m) {
         return compareTo(m) <= 0;
     }
     
     
+    /**
+     * Takes in an object, checks if that object is an instance of Money and if it is then compares the input instance 
+     * to this instance and returns true if their value fields are equal. If the input is not an instance of Money 
+     * the return false
+     * 
+     * @param an object
+     * @return True if the input object is an instance of the Money class and its value field is equal to this instance's value field
+     */
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof Money)) return false;

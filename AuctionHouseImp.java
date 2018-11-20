@@ -49,8 +49,13 @@ public class AuctionHouseImp implements AuctionHouse {
             String bankAuthCode) {
         logger.fine(startBanner("registerBuyer " + name));
         
-        buyerList.put(name, new Buyer(name, address, bankAccount, bankAuthCode));
-        return Status.OK();
+        if(buyerList.get(name) == null) {
+            buyerList.put(name, new Buyer(name, address, bankAccount, bankAuthCode));
+            return Status.OK();    
+        }
+        else {
+            return Status.error("This buyer has already been registerd");
+        }
     }
 
     public Status registerSeller(
@@ -59,8 +64,14 @@ public class AuctionHouseImp implements AuctionHouse {
             String bankAccount) {
         logger.fine(startBanner("registerSeller " + name));
         
-        sellerList.put(name, new Seller(name, address, bankAccount));
-        return Status.OK();      
+        if(sellerList.get(name) == null) {
+            sellerList.put(name, new Seller(name, address, bankAccount));
+            return Status.OK();    
+        }
+        else {
+            return Status.error("This seller has already been registered");
+        }
+          
     }
 
     public Status addLot(
@@ -69,6 +80,10 @@ public class AuctionHouseImp implements AuctionHouse {
             String description,
             Money reservePrice) {
         logger.fine(startBanner("addLot " + sellerName + " " + number));
+        
+        if(sellerList.get(sellerName) == null) {
+            return Status.error("This seller has not been registered"); 
+        }
         
         catalogueEntries.put(number, new CatalogueEntry(number, description, LotStatus.UNSOLD));
         catalogueLot.put(number, new Lot(sellerName, number, description, reservePrice, LotStatus.UNSOLD));
@@ -98,12 +113,16 @@ public class AuctionHouseImp implements AuctionHouse {
         
         return catalogue;
     }
-
+    
     public Status noteInterest(
             String buyerName,
             int lotNumber) {
         logger.fine(startBanner("noteInterest " + buyerName + " " + lotNumber));
        
+        if(catalogueLot.get(lotNumber) == null) {
+            return Status.error("This lot has not been registerd");
+        }
+        
         List<String> newList = interestedBuyers.get(lotNumber);
         newList.add(buyerName);
         interestedBuyers.put(lotNumber, newList);
@@ -116,6 +135,11 @@ public class AuctionHouseImp implements AuctionHouse {
             String auctioneerAddress,
             int lotNumber) {
         logger.fine(startBanner("openAuction " + auctioneerName + " " + lotNumber));
+        
+        if(catalogueLot.get(lotNumber) == null) {
+            return Status.error("This lot has not been registerd");
+        }
+        
         
         Lot currentLot = catalogueLot.get(lotNumber);
         
@@ -209,6 +233,11 @@ public class AuctionHouseImp implements AuctionHouse {
             int lotNumber) {
         logger.fine(startBanner("closeAuction " + auctioneerName + " " + lotNumber));
         
+        if(catalogueLot.get(lotNumber) == null) {
+            return Status.error("This lot has not been registerd");
+        }
+        
+        
         Lot currentLot = catalogueLot.get(lotNumber);
         
         Money finalBid = lotBids.get(lotNumber);
@@ -223,7 +252,7 @@ public class AuctionHouseImp implements AuctionHouse {
             Status housetoSeller = parameters.bankingService.transfer(parameters.houseBankAccount, parameters.houseBankAuthCode, sellerAccount, amountSeller);
             
             
-            if(housetoSeller.kind == Status.Kind.OK) {
+            if(housetoSeller.kind == Status.Kind.OK && buyertoHouse.kind == Status.Kind.OK) {
                 currentLot.setSold();
                 String sellerAddress = sellerList.get(currentLot.getSellerName()).getSellerAddress();
                 
