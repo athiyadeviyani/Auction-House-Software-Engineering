@@ -6,15 +6,4 @@ public class Seller extends User {
         super(name, address, bankAccount);
     }
     
-    public String getSellerName() {
-        return name;
-    }
-    
-    public String getSellerAddress() {
-        return address;
-    }
-    
-    public String getSellerAccount() {
-        return bankAccount;
-    }
 }

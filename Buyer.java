@@ -9,20 +9,9 @@ public class Buyer extends User {
         this.bankAuthCode = bankAuthCode;
     }
 
-    public String getBuyerName() {
-        return name;
-    }
-    
-    public String getBuyerAddress() {
-        return address;
-    }
-    
-    public String getBuyerAuthCode() {
+    public String getAuthCode() {
         return bankAuthCode;
     }
     
-    public String getBuyerAccount() {
-        return bankAccount;
-    }
 
 }

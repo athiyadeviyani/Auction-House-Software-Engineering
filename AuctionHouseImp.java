@@ -4,11 +4,10 @@
 package auctionhouse;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.logging.Logger;
 
 /**
@@ -21,15 +20,13 @@ public class AuctionHouseImp implements AuctionHouse {
     private static final String LS = System.lineSeparator();
     // added code here
     private Parameters parameters;
+    //Association between AuctionHouse and Buyers - map buyers to their names for easy access in methods
     private Map<String,Buyer> buyerList = new HashMap<String,Buyer>();
+    //Association between AuctionHouse and Sellers - map sellers to their names for easy access in methods
     private Map<String, Seller> sellerList = new HashMap<String, Seller>();
+    //Association between AuctionHouse and Lots - map lots to their lotNumbers for easy access in methods
     private Map<Integer, Lot> catalogueLot = new HashMap<Integer, Lot>();
-    private Map<Integer, CatalogueEntry> catalogueEntries = new HashMap<Integer ,CatalogueEntry>();
-    private Map<Integer, List<String>> interestedBuyers = new HashMap<Integer, List<String>>();
-    // we can have multiple auctions at once
-    private Map<Integer, String> highestBidders = new HashMap<Integer, String>();
-    private Map<Integer, Money> lotBids = new HashMap<Integer, Money>();
-    private Map<Integer, List<String>> auctioneers = new HashMap<Integer, List<String>>();
+    TreeMap<Integer, CatalogueEntry> catalogueEntries = new TreeMap<>();
     
     private String startBanner(String messageName) {
         return  LS 
@@ -49,11 +46,13 @@ public class AuctionHouseImp implements AuctionHouse {
             String bankAuthCode) {
         logger.fine(startBanner("registerBuyer " + name));
         
+        //check if buyer is registered 
         if(buyerList.get(name) == null) {
             buyerList.put(name, new Buyer(name, address, bankAccount, bankAuthCode));
             return Status.OK();    
         }
         else {
+            logger.warning(startBanner("Buyer already registered"));
             return Status.error("This buyer has already been registerd");
         }
     }
@@ -64,14 +63,15 @@ public class AuctionHouseImp implements AuctionHouse {
             String bankAccount) {
         logger.fine(startBanner("registerSeller " + name));
         
+        //check if Seller is registered
         if(sellerList.get(name) == null) {
             sellerList.put(name, new Seller(name, address, bankAccount));
             return Status.OK();    
         }
         else {
+            logger.warning(startBanner("Seller already registered"));
             return Status.error("This seller has already been registered");
         }
-          
     }
 
     public Status addLot(
@@ -81,35 +81,21 @@ public class AuctionHouseImp implements AuctionHouse {
             Money reservePrice) {
         logger.fine(startBanner("addLot " + sellerName + " " + number));
         
+        //check if seller is unregistered
         if(sellerList.get(sellerName) == null) {
+            logger.warning(startBanner("Seller not registered"));
             return Status.error("This seller has not been registered"); 
         }
         
         catalogueEntries.put(number, new CatalogueEntry(number, description, LotStatus.UNSOLD));
         catalogueLot.put(number, new Lot(sellerName, number, description, reservePrice, LotStatus.UNSOLD));
-        interestedBuyers.put(number, new ArrayList<String>());
         return Status.OK();    
     }
 
     public List<CatalogueEntry> viewCatalogue() {
         logger.fine(startBanner("viewCatalog"));
         
-        List<CatalogueEntry> catalogue = new ArrayList<CatalogueEntry>();
-        
-        logger.fine("Catalogue: " + catalogue.toString());
-        
-        //make loop
-        List<Integer> keys = new ArrayList<Integer>();
-        
-        for (Integer key : catalogueEntries.keySet()) {
-            keys.add(key);
-        }
-        
-        Collections.sort(keys);  
-        
-        for(Integer key : keys) {
-            catalogue.add(catalogueEntries.get(key));
-        }
+       List<CatalogueEntry> catalogue = new ArrayList<CatalogueEntry>(catalogueEntries.values());
         
         return catalogue;
     }
@@ -120,12 +106,11 @@ public class AuctionHouseImp implements AuctionHouse {
         logger.fine(startBanner("noteInterest " + buyerName + " " + lotNumber));
        
         if(catalogueLot.get(lotNumber) == null) {
+            logger.warning(startBanner("Lot not registered"));
             return Status.error("This lot has not been registerd");
         }
         
-        List<String> newList = interestedBuyers.get(lotNumber);
-        newList.add(buyerName);
-        interestedBuyers.put(lotNumber, newList);
+        catalogueLot.get(lotNumber).addBuyer(buyerList.get(buyerName));
        
         return Status.OK();   
     }
@@ -137,6 +122,7 @@ public class AuctionHouseImp implements AuctionHouse {
         logger.fine(startBanner("openAuction " + auctioneerName + " " + lotNumber));
         
         if(catalogueLot.get(lotNumber) == null) {
+            logger.warning(startBanner("Lot not registered"));
             return Status.error("This lot has not been registerd");
         }
         
@@ -148,23 +134,18 @@ public class AuctionHouseImp implements AuctionHouse {
          // notify the seller
             //retrieve seller
             
-            String sellerAddress = sellerList.get(currentLot.getSellerName()).getSellerAddress();
+            String sellerAddress = sellerList.get(currentLot.getSellerName()).getAddress();
             
             parameters.messagingService.auctionOpened(sellerAddress, lotNumber);
             
             
             // notify each interested buyer
-            List<String> buyers = interestedBuyers.get(lotNumber);
-            for (String b : buyers) {
-               parameters.messagingService.auctionOpened(buyerList.get(b).getBuyerAddress(), lotNumber);
+            List<Buyer> buyers = catalogueLot.get(lotNumber).getInterestedBuyers();
+            for (Buyer b : buyers) {
+               parameters.messagingService.auctionOpened(b.getAddress(), lotNumber);
             }
             
-            // put the lot in the list of open lots, initialise the current bid to 0
-            lotBids.put(lotNumber, new Money("0"));
-            List<String> auctioneerList = new ArrayList<String>();
-            auctioneerList.add(auctioneerName);
-            auctioneerList.add(auctioneerAddress);
-            auctioneers.put(lotNumber, auctioneerList);
+            currentLot.setAuctioneer(new Auctioneer(auctioneerName, auctioneerAddress));
             
             // change the status of the lot
             currentLot.setInAuction();
@@ -173,10 +154,13 @@ public class AuctionHouseImp implements AuctionHouse {
         }
         
         if (currentLot.getLotStatus() == LotStatus.SOLD) {
+            logger.warning(startBanner("Lot already sold"));
             return Status.error("This lot is already sold.");
         } else if (currentLot.getLotStatus() == LotStatus.IN_AUCTION) {
+            logger.warning(startBanner("Lot not opened"));
             return Status.error("This lot has already been opened.");
         } else {
+            logger.warning(startBanner("Lot already sold and pending payment"));
             return Status.error("This lot is already sold and is pending payment.");
         }
     }
@@ -190,39 +174,52 @@ public class AuctionHouseImp implements AuctionHouse {
         Lot currentLot = catalogueLot.get(lotNumber);
         
         if (currentLot.getLotStatus() == LotStatus.IN_AUCTION) {
-        
-            Money currentBid = lotBids.get(lotNumber);
             
-            if (!bid.lessEqual(currentBid)) {
-                lotBids.put(lotNumber, bid);
-                highestBidders.put(lotNumber, buyerName);
+            Money currentBid = currentLot.getHighestBid();
+            
+            //if a buyer has not noted interest in a lot he/she cannot make a bid on it
+            if(!currentLot.getInterestedBuyers().contains(buyerList.get(buyerName))){
+                logger.warning("Buyer has not noted interest");
+                return Status.error("Buyer has not noted interest");
             }
             
-            // could potentially abstract this
-            String sellerAddress = sellerList.get(currentLot.getSellerName()).getSellerAddress(); 
+            if (!bid.lessEqual(currentBid)) {
+                currentLot.setHighestBid(bid);
+                currentLot.setHighestBidder(buyerList.get(buyerName));;
+            }
+            else {
+                logger.warning("Bid not high enough");
+                return Status.error("Bid not high enough");
+            }
+            
+            String sellerAddress = sellerList.get(currentLot.getSellerName()).getAddress();
+            //notify Seller that the bid was accepted
             parameters.messagingService.bidAccepted(sellerAddress, lotNumber, bid);
             
             
             // notify each interested buyer
-            List<String> buyers = interestedBuyers.get(lotNumber);
-            for (String b : buyers) {
-                if (b != buyerName) {
-                    parameters.messagingService.bidAccepted(buyerList.get(b).getBuyerAddress(), lotNumber, bid);
+            List<Buyer> buyers = catalogueLot.get(lotNumber).getInterestedBuyers();
+            for (Buyer b : buyers) {
+                if (b.getName() != buyerName) {
+                    parameters.messagingService.bidAccepted(b.getAddress(), lotNumber, bid);
                 }
             }
             
             //notify auctioneer
-            String auctioneerAddress = auctioneers.get(lotNumber).get(1);
+            String auctioneerAddress = currentLot.getAuctioneer().getAddress();
             parameters.messagingService.bidAccepted(auctioneerAddress, lotNumber, bid);
             
             return Status.OK();
         }
         
         if (currentLot.getLotStatus() == LotStatus.SOLD) {
+            logger.warning(startBanner("Lot already sold"));
             return Status.error("This lot is already sold.");
         } else if (currentLot.getLotStatus() == LotStatus.UNSOLD) {
+            logger.warning(startBanner("Lot not opened"));
             return Status.error("This lot has not been opened.");
         } else {
+            logger.warning(startBanner("Lot already sold and pending payment"));
             return Status.error("This lot is already sold and is pending payment.");
         }
         
@@ -233,57 +230,66 @@ public class AuctionHouseImp implements AuctionHouse {
             int lotNumber) {
         logger.fine(startBanner("closeAuction " + auctioneerName + " " + lotNumber));
         
-        if(catalogueLot.get(lotNumber) == null) {
+        Lot currentLot = catalogueLot.get(lotNumber);
+        
+        
+        if(currentLot == null) {
             return Status.error("This lot has not been registerd");
         }
         
+        if(currentLot.status != LotStatus.IN_AUCTION) {
+            return Status.error("This lot has not been opened");
+        }
         
-        Lot currentLot = catalogueLot.get(lotNumber);
+        if(currentLot.getAuctioneer().getName() != auctioneerName) {
+            return Status.error("This auctioneer is not authorized to close this auction");
+        }
         
-        Money finalBid = lotBids.get(lotNumber);
+        
+        
+        Money finalBid = currentLot.getHighestBid();
         
         if (currentLot.getReservePrice().lessEqual(finalBid)) {
-            String buyerAccount = buyerList.get(highestBidders.get(lotNumber)).getBuyerAccount();
-            String buyerAuthCode = buyerList.get(highestBidders.get(lotNumber)).getBuyerAuthCode();
-            String sellerAccount = sellerList.get(catalogueLot.get(lotNumber).getSellerName()).getSellerAccount();
-            Money amountBuyer = lotBids.get(lotNumber).addPercent(parameters.buyerPremium);
-            Money amountSeller = lotBids.get(lotNumber).addPercent(-parameters.commission);
+            String buyerAccount = currentLot.getHighestBidder().getAccount();
+            String buyerAuthCode = currentLot.getHighestBidder().getAuthCode();
+            String sellerAccount = sellerList.get(catalogueLot.get(lotNumber).getSellerName()).getAccount();
+            Money amountBuyer = currentLot.getHighestBid().addPercent(parameters.buyerPremium);
+            Money amountSeller = currentLot.getHighestBid().addPercent(-parameters.commission);
             Status buyertoHouse = parameters.bankingService.transfer(buyerAccount, buyerAuthCode, parameters.houseBankAccount, amountBuyer);
             Status housetoSeller = parameters.bankingService.transfer(parameters.houseBankAccount, parameters.houseBankAuthCode, sellerAccount, amountSeller);
             
-            
+            //verify both transactions were okay
             if(housetoSeller.kind == Status.Kind.OK && buyertoHouse.kind == Status.Kind.OK) {
                 currentLot.setSold();
-                String sellerAddress = sellerList.get(currentLot.getSellerName()).getSellerAddress();
+                String sellerAddress = sellerList.get(currentLot.getSellerName()).getAddress();
                 
                 parameters.messagingService.lotSold(sellerAddress, lotNumber);
                                 
                 // notify each interested buyer
-                List<String> buyers = interestedBuyers.get(lotNumber);
-                for (String b : buyers) {
-                   parameters.messagingService.lotSold(buyerList.get(b).getBuyerAddress(), lotNumber);
+                List<Buyer> buyers = catalogueLot.get(lotNumber).getInterestedBuyers();
+                for (Buyer b : buyers) {
+                   parameters.messagingService.lotSold(b.getAddress(), lotNumber);
                 }
                 
                 return new Status(Status.Kind.SALE);
             } else {
+                //if the transactions do not go through then the sale is pending
                 currentLot.setPendingPayment();
                 return new Status(Status.Kind.SALE_PENDING_PAYMENT);
             }   
         } else {
             currentLot.setUnsold();
-            String sellerAddress = sellerList.get(currentLot.getSellerName()).getSellerAddress();
+            String sellerAddress = sellerList.get(currentLot.getSellerName()).getAddress();
             
             parameters.messagingService.lotUnsold(sellerAddress, lotNumber);
             
             // notify each interested buyer
-            List<String> buyers = interestedBuyers.get(lotNumber);
-            for (String b : buyers) {
-               parameters.messagingService.lotUnsold(buyerList.get(b).getBuyerAddress(), lotNumber);
+            List<Buyer> buyers = catalogueLot.get(lotNumber).getInterestedBuyers();
+            for (Buyer b : buyers) {
+               parameters.messagingService.lotUnsold(b.getAddress(), lotNumber);
             }
             
             return new Status(Status.Kind.NO_SALE);
         }
-        
-  //      return Status.OK();  
     }
 }

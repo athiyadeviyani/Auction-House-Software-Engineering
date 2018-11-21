@@ -3,6 +3,7 @@
  */
 package auctionhouse;
 
+
 /**
  * @author pbj
  *
@@ -13,6 +14,7 @@ public class CatalogueEntry {
     public int lotNumber;
     public String description;
     public LotStatus status;
+    
     
     public CatalogueEntry(int lotNumber, String description, LotStatus status) {
         this.lotNumber = lotNumber;

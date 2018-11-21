@@ -48,6 +48,7 @@ public class AuctionHouseTest {
         assertEquals(Status.Kind.SALE_PENDING_PAYMENT, status.kind);
     }
     
+    
     /*
      * Logging functionality
      */
@@ -243,13 +244,13 @@ public class AuctionHouseTest {
     }
       
     @Test
-    //test the case where an auction is opened on an unregistered Lot
     public void testOpenAuction() {
         logger.info(makeBanner("testOpenAuction"));
         runStory(5);       
     }
     
     @Test
+    //test the case where an auction is opened on an unregistered lot
     public void testOpenAuctionUnregLot() {
         logger.info(makeBanner("testOpenAuction"));
         runStory(4);
@@ -260,6 +261,28 @@ public class AuctionHouseTest {
     public void testMakeBid() {
         logger.info(makeBanner("testMakeBid"));
         runStory(7);
+        assertError(house.closeAuction("Auctioneer1",  19));
+    }
+    
+    @Test
+    public void testMakeBidWithoutNotingInterest() {
+        logger.info(makeBanner("testMakeBidWithoutNotingInterest"));
+        runStory(7);
+        assertError(house.makeBid("BuyerB",5, new Money("1200")));
+    }
+    
+    @Test
+    public void bidNotEnough() {
+        logger.info(makeBanner("bidNotEnough"));
+        runStory(7);
+        assertError(house.makeBid("BuyerA",1, new Money("20")));
+    }
+    
+    @Test
+    public void testCloseAuctionUnopenedLot() {
+        logger.info(makeBanner("testCloseAuctionUnopenedLot"));
+        runStory(7);
+        assertError(house.closeAuction("Auctioneer", 2));
     }
   
     @Test
@@ -277,14 +300,24 @@ public class AuctionHouseTest {
     }
     
     @Test
+    //test the case where an auction results in no sale due to the hammer price being less than the reserve price
+    public void testCloseAuctionNoSale() {
+        logger.info(makeBanner("testCloseAuctionNoSale"));
+        runStory(7);
+        house.openAuction("Auctioneer2", "@Auctioneer2", 2);
+        assertError(house.closeAuction("Auctioneer1",  2));
+    }
+    
+    @Test
     //test a transaction will result in pending payment status of the transaction with a bad account
-    public void testBadAccount() {
-        logger.info(makeBanner("testBadAccount"));
+    public void testCloseAuctionBadAccount() {
+        logger.info(makeBanner("testCloseAuctionBadAccount"));
         runStory(7);
         bankingService.setBadAccount("BB A/C");
         
         assertPendingPayment(house.closeAuction("Auctioneer1",  1));
     }
+    
      
     
 }
